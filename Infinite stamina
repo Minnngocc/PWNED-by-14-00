@@ -1,0 +1,96 @@
+-- 🛠️ Rayfield-Style No Stamina Drain UI (Draggable + K Toggle)
+
+local player = game:GetService("Players").LocalPlayer
+local UIS = game:GetService("UserInputService")
+local drainConns = {}
+local UI_VISIBLE = true
+
+-- Disconnect helpers
+local function clearConnections(conns)
+	for _, c in ipairs(conns) do
+		if typeof(c) == "RBXScriptConnection" then
+			pcall(function() c:Disconnect() end)
+		end
+	end
+	table.clear(conns)
+end
+
+-- Lock stat
+local function lockDrain()
+	local function lockValue(obj)
+		if obj:IsA("NumberValue") and obj.Name == "StaminaDrainageMultiplier" then
+			obj.Value = 0
+			table.insert(drainConns, obj.Changed:Connect(function()
+				obj.Value = 0
+			end))
+		end
+	end
+
+	local function scan(root)
+		for _, obj in ipairs(root:GetDescendants()) do
+			lockValue(obj)
+		end
+	end
+
+	scan(player)
+	if player.Character then scan(player.Character) end
+	table.insert(drainConns, player.CharacterAdded:Connect(function(char)
+		scan(char)
+		table.insert(drainConns, char.DescendantAdded:Connect(function(obj)
+			lockValue(obj)
+		end))
+	end))
+end
+
+-- 📦 UI Setup
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.Name = "NoDrainUI"
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 240, 0, 100)
+frame.Position = UDim2.new(0, 50, 0, 100)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Name = "Main"
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 35)
+title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+title.Text = "No Stamina Drain"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 18
+title.Font = Enum.Font.GothamBold
+title.TextStrokeTransparency = 0.8
+title.Name = "Title"
+
+-- Make it draggable
+frame.Active = true
+frame.Draggable = true
+
+-- Toggle
+local toggle = Instance.new("TextButton", frame)
+toggle.Size = UDim2.new(0.8, 0, 0, 30)
+toggle.Position = UDim2.new(0.1, 0, 0, 50)
+toggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+toggle.Text = "[ OFF ] No Drain"
+toggle.TextColor3 = Color3.fromRGB(255, 80, 80)
+toggle.Font = Enum.Font.Gotham
+toggle.TextSize = 14
+toggle.BorderSizePixel = 0
+
+local toggled = false
+toggle.MouseButton1Click:Connect(function()
+	toggled = not toggled
+	toggle.Text = toggled and "[ ON  ] No Drain" or "[ OFF ] No Drain"
+	toggle.TextColor3 = toggled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 80, 80)
+	clearConnections(drainConns)
+	if toggled then lockDrain() end
+end)
+
+-- 🔁 K Key Toggle UI
+UIS.InputBegan:Connect(function(input, gameProcessed)
+	if not gameProcessed and input.KeyCode == Enum.KeyCode.K then
+		UI_VISIBLE = not UI_VISIBLE
+		frame.Visible = UI_VISIBLE
+	end
+end)
